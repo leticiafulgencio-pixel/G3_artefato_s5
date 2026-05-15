@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gym Churn Predictor — Dashboard de Análise Preditiva</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0c10;--bg2:#12151c;--bg3:#1a1e28;--bg4:#222836;
+  --tx:#e8eaf0;--tx2:#9ba3b5;--tx3:#5c6478;
+  --ac:#6c5ce7;--ac2:#a29bfe;--ac3:#3d34a5;
+  --red:#ff6b6b;--red2:#ee5a24;--green:#00d2d3;--green2:#1dd1a1;
+  --amber:#feca57;--blue:#54a0ff;
+  --brd:rgba(255,255,255,0.06);
+  --radius:12px;--radius-sm:8px;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;overflow-x:hidden}
+
+.grain{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;opacity:0.03;z-index:999;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+.glow-orb{position:fixed;border-radius:50%;filter:blur(120px);pointer-events:none;opacity:0.12}
+.glow-orb.one{width:500px;height:500px;background:var(--ac);top:-100px;left:-100px}
+.glow-orb.two{width:400px;height:400px;background:var(--green);bottom:-100px;right:-100px}
+
+.container{max-width:1200px;margin:0 auto;padding:2rem 1.5rem;position:relative;z-index:1}
+
+header{text-align:center;margin-bottom:3rem}
+header h1{font-size:2.2rem;font-weight:700;letter-spacing:-0.03em;margin-bottom:0.5rem;background:linear-gradient(135deg,var(--ac2),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+header p{color:var(--tx2);font-size:0.95rem;max-width:600px;margin:0 auto}
+
+.badge{display:inline-block;padding:4px 14px;border-radius:20px;font-size:0.7rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase}
+.badge-purple{background:rgba(108,92,231,0.15);color:var(--ac2)}
+.badge-green{background:rgba(29,209,161,0.12);color:var(--green2)}
+.badge-red{background:rgba(255,107,107,0.12);color:var(--red)}
+
+.tabs{display:flex;gap:4px;background:var(--bg2);border-radius:var(--radius);padding:4px;margin-bottom:2rem;border:1px solid var(--brd)}
+.tab{flex:1;padding:10px 16px;border-radius:var(--radius-sm);font-size:0.85rem;font-weight:500;cursor:pointer;text-align:center;transition:all 0.3s;color:var(--tx2);border:none;background:transparent}
+.tab:hover{color:var(--tx)}
+.tab.active{background:var(--ac3);color:#fff;box-shadow:0 2px 12px rgba(108,92,231,0.3)}
+
+.panel{display:none;animation:fadeUp 0.4s ease}
+.panel.active{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:2rem}
+.metric-card{background:var(--bg2);border:1px solid var(--brd);border-radius:var(--radius);padding:1.2rem;transition:border-color 0.3s}
+.metric-card:hover{border-color:rgba(255,255,255,0.12)}
+.metric-card .label{font-size:0.75rem;color:var(--tx3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px}
+.metric-card .value{font-size:1.6rem;font-weight:700;font-family:'DM Mono',monospace}
+.metric-card .sub{font-size:0.75rem;color:var(--tx2);margin-top:4px}
+
+.card{background:var(--bg2);border:1px solid var(--brd);border-radius:var(--radius);padding:1.5rem;margin-bottom:1.5rem}
+.card-title{font-size:0.95rem;font-weight:600;margin-bottom:1rem;display:flex;align-items:center;gap:8px}
+.card-title .dot{width:8px;height:8px;border-radius:50%}
+
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+@media(max-width:768px){.grid-2{grid-template-columns:1fr}}
+
+.chart-wrap{position:relative;height:300px}
+
+/* Predictor form */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:600px){.form-grid{grid-template-columns:1fr}}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:0.78rem;color:var(--tx2);text-transform:uppercase;letter-spacing:0.04em;font-weight:500}
+.field select,.field input[type=range]{width:100%;background:var(--bg3);border:1px solid var(--brd);border-radius:var(--radius-sm);color:var(--tx);padding:10px 12px;font-size:0.9rem;font-family:'DM Sans',sans-serif;outline:none;transition:border-color 0.3s}
+.field select:focus,.field input:focus{border-color:var(--ac)}
+.field select option{background:var(--bg2)}
+.range-row{display:flex;align-items:center;gap:12px}
+.range-row input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:6px;border-radius:3px;background:var(--bg4);outline:none;border:none;padding:0}
+.range-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--ac);cursor:pointer;box-shadow:0 0 8px rgba(108,92,231,0.4)}
+.range-val{font-family:'DM Mono',monospace;font-size:0.85rem;min-width:40px;text-align:right;color:var(--ac2)}
+
+.predict-btn{width:100%;padding:14px;border:none;border-radius:var(--radius);background:linear-gradient(135deg,var(--ac),var(--ac3));color:#fff;font-size:1rem;font-weight:600;cursor:pointer;margin-top:1rem;transition:transform 0.2s,box-shadow 0.3s;font-family:'DM Sans',sans-serif;letter-spacing:0.01em}
+.predict-btn:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(108,92,231,0.4)}
+.predict-btn:active{transform:scale(0.98)}
+
+.result-box{margin-top:1.5rem;padding:1.5rem;border-radius:var(--radius);text-align:center;display:none;animation:fadeUp 0.5s ease}
+.result-box h3{font-size:1rem;margin-bottom:8px;font-weight:500}
+.result-box .prob{font-size:3rem;font-weight:700;font-family:'DM Mono',monospace;margin:8px 0}
+.result-box .verdict{font-size:0.9rem;font-weight:500;padding:6px 16px;border-radius:20px;display:inline-block}
+
+.risk-bar{height:8px;border-radius:4px;background:var(--bg4);margin-top:12px;overflow:hidden}
+.risk-bar-fill{height:100%;border-radius:4px;transition:width 1s ease}
+
+/* Factor list */
+.factors{margin-top:1rem}
+.factor-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--brd);font-size:0.85rem}
+.factor-item:last-child{border:none}
+.factor-bar{height:6px;border-radius:3px;flex:1;background:var(--bg4);overflow:hidden}
+.factor-bar-fill{height:100%;border-radius:3px}
+
+/* Table */
+.data-table{width:100%;border-collapse:separate;border-spacing:0;font-size:0.8rem}
+.data-table th{text-align:left;padding:10px 12px;color:var(--tx3);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;font-size:0.7rem;border-bottom:1px solid var(--brd)}
+.data-table td{padding:10px 12px;border-bottom:1px solid var(--brd);color:var(--tx2)}
+.data-table tr:last-child td{border:none}
+.data-table tr:hover td{background:rgba(255,255,255,0.02)}
+
+.model-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--brd)}
+.model-row:last-child{border:none}
+.model-name{width:160px;font-weight:500;font-size:0.9rem}
+.model-bar{flex:1;height:24px;border-radius:4px;background:var(--bg4);overflow:hidden;position:relative}
+.model-bar-fill{height:100%;border-radius:4px;display:flex;align-items:center;padding-left:8px;font-size:0.75rem;font-weight:600;color:#fff;transition:width 1.5s ease}
+.model-badge{font-family:'DM Mono',monospace;font-size:0.8rem;font-weight:600;min-width:60px;text-align:right}
+
+footer{text-align:center;padding:3rem 0 1rem;color:var(--tx3);font-size:0.8rem}
+footer a{color:var(--ac2);text-decoration:none}
+</style>
+</head>
+<body>
+
+<div class="grain"></div>
+<div class="glow-orb one"></div>
+<div class="glow-orb two"></div>
+
+<div class="container">
+
+<header>
+  <span class="badge badge-purple">Machine Learning</span>
+  <h1>Gym Churn Predictor</h1>
+  <p>Dashboard de análise preditiva de cancelamento de membros de academia. Modelo treinado com 4.000 registros reais.</p>
+</header>
+
+<div class="tabs">
+  <button class="tab active" onclick="showTab('overview')">Visão geral</button>
+  <button class="tab" onclick="showTab('models')">Modelos</button>
+  <button class="tab" onclick="showTab('predictor')">Preditor</button>
+  <button class="tab" onclick="showTab('data')">Dados</button>
+</div>
+
+<!-- PANEL: OVERVIEW -->
+<div id="overview" class="panel active">
+  <div class="metrics">
+    <div class="metric-card"><div class="label">Registros</div><div class="value">4.000</div><div class="sub">membros analisados</div></div>
+    <div class="metric-card"><div class="label">Taxa de churn</div><div class="value" style="color:var(--red)">26,5%</div><div class="sub">1.061 cancelamentos</div></div>
+    <div class="metric-card"><div class="label">Melhor modelo</div><div class="value" style="color:var(--green)">93,9%</div><div class="sub">Gradient Boosting</div></div>
+    <div class="metric-card"><div class="label">AUC-ROC</div><div class="value" style="color:var(--ac2)">0,976</div><div class="sub">excelente discriminação</div></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title"><span class="dot" style="background:var(--ac)"></span>Distribuição de churn</div>
+      <div class="chart-wrap"><canvas id="churnDonut"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="dot" style="background:var(--red)"></span>Churn por contrato</div>
+      <div class="chart-wrap"><canvas id="contractChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="dot" style="background:var(--green)"></span>Importância das variáveis (Gradient Boosting)</div>
+    <div class="chart-wrap" style="height:360px"><canvas id="featureChart"></canvas></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title"><span class="dot" style="background:var(--amber)"></span>Distribuição de idade</div>
+      <div class="chart-wrap"><canvas id="ageChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="dot" style="background:var(--blue)"></span>Churn por fator</div>
+      <div class="chart-wrap"><canvas id="factorChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- PANEL: MODELS -->
+<div id="models" class="panel">
+  <div class="card">
+    <div class="card-title"><span class="dot" style="background:var(--ac)"></span>Comparação de modelos</div>
+    <p style="color:var(--tx2);font-size:0.85rem;margin-bottom:1.5rem">Três algoritmos foram treinados com 75% dos dados e avaliados nos 25% restantes.</p>
+
+    <div style="margin-bottom:2rem">
+      <div style="font-size:0.78rem;color:var(--tx3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:12px;font-weight:600">Acurácia</div>
+      <div class="model-row"><span class="model-name">Logistic Regression</span><div class="model-bar"><div class="model-bar-fill" style="width:91.9%;background:var(--ac)">91,9%</div></div></div>
+      <div class="model-row"><span class="model-name">Random Forest</span><div class="model-bar"><div class="model-bar-fill" style="width:91.5%;background:var(--blue)">91,5%</div></div></div>
+      <div class="model-row"><span class="model-name">Gradient Boosting</span><div class="model-bar"><div class="model-bar-fill" style="width:93.9%;background:var(--green)">93,9%</div></div><span class="badge badge-green" style="margin-left:8px;font-size:0.65rem">melhor</span></div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title"><span class="dot" style="background:var(--green)"></span>Métricas detalhadas</div>
+      <table class="data-table">
+        <thead><tr><th>Modelo</th><th>Precision</th><th>Recall</th><th>F1</th><th>AUC</th></tr></thead>
+        <tbody>
+          <tr><td style="color:var(--tx)">Logistic Reg.</td><td>86,8%</td><td>81,9%</td><td>84,3%</td><td>0,975</td></tr>
+          <tr><td style="color:var(--tx)">Random Forest</td><td>87,5%</td><td>79,3%</td><td>83,2%</td><td>0,966</td></tr>
+          <tr><td style="color:var(--tx);font-weight:600">Gradient Boost.</td><td style="color:var(--green2)">90,8%</td><td style="color:var(--green2)">85,7%</td><td style="color:var(--green2)">88,2%</td><td style="color:var(--green2)">0,976</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="dot" style="background:var(--amber)"></span>O que cada métrica significa</div>
+      <div style="font-size:0.85rem;color:var(--tx2);line-height:1.7">
+        <p><strong style="color:var(--tx)">Accuracy</strong> — de todos os membros, quantos o modelo classificou corretamente.</p>
+        <p style="margin-top:8px"><strong style="color:var(--tx)">Precision</strong> — dos que o modelo disse que iam sair, quantos realmente saíram.</p>
+        <p style="margin-top:8px"><strong style="color:var(--tx)">Recall</strong> — de todos que realmente saíram, quantos o modelo conseguiu identificar.</p>
+        <p style="margin-top:8px"><strong style="color:var(--tx)">F1-Score</strong> — equilíbrio entre precision e recall.</p>
+        <p style="margin-top:8px"><strong style="color:var(--tx)">AUC-ROC</strong> — capacidade geral de distinguir entre quem sai e quem fica (1 = perfeito).</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PANEL: PREDICTOR -->
+<div id="predictor" class="panel">
+  <div class="card">
+    <div class="card-title"><span class="dot" style="background:var(--ac)"></span>Previsão individual de churn</div>
+    <p style="color:var(--tx2);font-size:0.85rem;margin-bottom:1.5rem">Preencha os dados de um membro e descubra a probabilidade de cancelamento usando Regressão Logística treinada nos dados reais.</p>
+
+    <div class="form-grid">
+      <div class="field">
+        <label>Gênero</label>
+        <select id="f_gender"><option value="1">Masculino</option><option value="0">Feminino</option></select>
+      </div>
+      <div class="field">
+        <label>Mora perto da academia?</label>
+        <select id="f_near"><option value="1">Sim</option><option value="0">Não</option></select>
+      </div>
+      <div class="field">
+        <label>Tem parceiro(a)?</label>
+        <select id="f_partner"><option value="0">Não</option><option value="1">Sim</option></select>
+      </div>
+      <div class="field">
+        <label>Veio por promoção de amigo?</label>
+        <select id="f_promo"><option value="0">Não</option><option value="1">Sim</option></select>
+      </div>
+      <div class="field">
+        <label>Deixou telefone?</label>
+        <select id="f_phone"><option value="1">Sim</option><option value="0">Não</option></select>
+      </div>
+      <div class="field">
+        <label>Duração do contrato</label>
+        <select id="f_contract"><option value="1">1 mês</option><option value="6">6 meses</option><option value="12">12 meses</option></select>
+      </div>
+      <div class="field">
+        <label>Visitas em grupo?</label>
+        <select id="f_group"><option value="0">Não</option><option value="1">Sim</option></select>
+      </div>
+      <div class="field">
+        <label>Idade: <span id="age_val" class="range-val">29</span></label>
+        <div class="range-row"><input type="range" id="f_age" min="18" max="41" value="29" step="1"></div>
+      </div>
+      <div class="field">
+        <label>Gasto médio adicional ($): <span id="charges_val" class="range-val">147</span></label>
+        <div class="range-row"><input type="range" id="f_charges" min="0" max="553" value="147" step="1"></div>
+      </div>
+      <div class="field">
+        <label>Meses restantes no contrato: <span id="months_val" class="range-val">4</span></label>
+        <div class="range-row"><input type="range" id="f_months" min="1" max="12" value="4" step="1"></div>
+      </div>
+      <div class="field">
+        <label>Tempo como membro (meses): <span id="lifetime_val" class="range-val">4</span></label>
+        <div class="range-row"><input type="range" id="f_lifetime" min="0" max="31" value="4" step="1"></div>
+      </div>
+      <div class="field">
+        <label>Freq. média de aulas (total): <span id="freq_total_val" class="range-val">1.9</span></label>
+        <div class="range-row"><input type="range" id="f_freq_total" min="0" max="6" value="1.9" step="0.1"></div>
+      </div>
+      <div class="field">
+        <label>Freq. de aulas (mês atual): <span id="freq_month_val" class="range-val">1.8</span></label>
+        <div class="range-row"><input type="range" id="f_freq_month" min="0" max="6.2" value="1.8" step="0.1"></div>
+      </div>
+    </div>
+
+    <button class="predict-btn" onclick="predict()">Calcular probabilidade de churn</button>
+
+    <div id="resultBox" class="result-box">
+      <h3>Probabilidade de cancelamento</h3>
+      <div class="prob" id="resultProb">—</div>
+      <div id="resultVerdict" class="verdict"></div>
+      <div class="risk-bar"><div class="risk-bar-fill" id="riskBar"></div></div>
+      <div id="resultFactors" class="factors"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PANEL: DATA -->
+<div id="data" class="panel">
+  <div class="card">
+    <div class="card-title"><span class="dot" style="background:var(--blue)"></span>Dicionário de variáveis</div>
+    <table class="data-table">
+      <thead><tr><th>Variável</th><th>Tipo</th><th>Descrição</th></tr></thead>
+      <tbody>
+        <tr><td style="color:var(--tx);font-family:'DM Mono',monospace;font-size:0.78rem">gender</td><td>Binária</td><td>0 = feminino, 1 = masculino</td></tr>
+        <tr><td style="color:var(--tx);font-family:'DM Mono',monospace;font-size:0.78rem">Near_Location</td><td>Binária</td><td>Mora perto da academia</td></tr>
+        <tr><td style="color:var(--tx);font-family:'DM Mono',monospace;font-size:0.78rem">Partner</td><td>Binária</td><td>Tem parceiro(a)</td></tr>
+        <tr><td style="color:var(--tx);font-family:'DM Mono',monospace;font-size:0.78rem">Promo_friends</td><td>Binária</td><td>Veio por promoção de amigo</td></tr>
+        <tr><td style="color:var(--tx);font-family:'DM Mono',monospace;font-size:0.78rem">Phone</td><td>Binária</td><td>Deixou telefone de contato</td></tr>
+        <tr><td style="color:var(--tx);font-family:'DM Mono',monospace;font-size:0.78rem">Contract_period</td><td>Categórica</td><td>Duração do contrato (1, 6 ou 12 meses)</td></tr>
+        <tr><td style="color:var(--tx);font-family:'DM Mono',monospace;font-size:0.78rem">Group_visits</td><td>Binária</td><td>Participa de visitas em grupo</td></tr>
+        <tr><td style="color:var(--tx);font-family:'DM Mono',monospace;font-size:0.78rem">Age</td><td>Numérica</td><td>Idade do membro (18–41)</td></tr>
+        <tr><td style="color:var(--tx);font-family:'DM Mono',monospace;font-size:0.78rem">Avg_additional_charges_total</td><td>Numérica</td><td>Média de cobranças adicionais ($)</td></tr>
+        <tr><td style="color:var(--tx);font-family:'DM Mono',monospace;font-size:0.78rem">Month_to_end_contract</td><td>Numérica</td><td>Meses até o fim do contrato</td></tr>
+        <tr><td style="color:var(--tx);font-family:'DM Mono',monospace;font-size:0.78rem">Lifetime</td><td>Numérica</td><td>Tempo total como membro (meses)</td></tr>
+        <tr><td style="color:var(--tx);font-family:'DM Mono',monospace;font-size:0.78rem">Avg_class_frequency_total</td><td>Numérica</td><td>Freq. média de aulas (histórico)</td></tr>
+        <tr><td style="color:var(--tx);font-family:'DM Mono',monospace;font-size:0.78rem">Avg_class_frequency_current_month</td><td>Numérica</td><td>Freq. de aulas no mês atual</td></tr>
+        <tr><td style="color:var(--tx);font-family:'DM Mono',monospace;font-size:0.78rem">Churn</td><td>Binária</td><td>1 = cancelou, 0 = permaneceu</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="dot" style="background:var(--green)"></span>Estatísticas descritivas</div>
+    <div style="overflow-x:auto">
+    <table class="data-table">
+      <thead><tr><th>Variável</th><th>Média</th><th>Desvio</th><th>Min</th><th>Max</th></tr></thead>
+      <tbody>
+        <tr><td style="color:var(--tx)">Age</td><td>29,2</td><td>3,3</td><td>18</td><td>41</td></tr>
+        <tr><td style="color:var(--tx)">Avg_additional_charges</td><td>146,9</td><td>96,4</td><td>0,15</td><td>552,6</td></tr>
+        <tr><td style="color:var(--tx)">Month_to_end_contract</td><td>4,3</td><td>4,2</td><td>1</td><td>12</td></tr>
+        <tr><td style="color:var(--tx)">Lifetime</td><td>3,7</td><td>3,8</td><td>0</td><td>31</td></tr>
+        <tr><td style="color:var(--tx)">Avg_class_freq_total</td><td>1,88</td><td>0,98</td><td>0</td><td>6,02</td></tr>
+        <tr><td style="color:var(--tx)">Avg_class_freq_month</td><td>1,77</td><td>1,06</td><td>0</td><td>6,15</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <p>Desenvolvido com Python (scikit-learn) + HTML/CSS/JS</p>
+  <p style="margin-top:4px">Modelo: Regressão Logística embarcada no navegador — sem backend necessário</p>
+</footer>
+
+</div>
+
+<script>
+// Tab switching
+function showTab(id){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// Slider value displays
+const sliders=[
+  ['f_age','age_val',0],['f_charges','charges_val',0],['f_months','months_val',0],
+  ['f_lifetime','lifetime_val',0],['f_freq_total','freq_total_val',1],['f_freq_month','freq_month_val',1]
+];
+sliders.forEach(([sid,vid,dec])=>{
+  const s=document.getElementById(sid);
+  s.addEventListener('input',()=>{document.getElementById(vid).textContent=Number(s.value).toFixed(dec)});
+});
+
+// Charts
+const TC='rgba(255,255,255,0.5)',GC='rgba(255,255,255,0.05)';
+const DF={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}};
+
+new Chart(document.getElementById('churnDonut'),{type:'doughnut',data:{labels:['Ficou','Saiu'],datasets:[{data:[73.5,26.5],backgroundColor:['#54a0ff','#ff6b6b'],borderWidth:0,borderRadius:4}]},options:{...DF,cutout:'60%',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.label+': '+ctx.parsed+'%'}}}}});
+
+new Chart(document.getElementById('contractChart'),{type:'bar',data:{labels:['1 mês','6 meses','12 meses'],datasets:[{data:[42.3,12.5,2.4],backgroundColor:['#ff6b6b','#feca57','#1dd1a1'],borderRadius:6}]},options:{...DF,scales:{x:{grid:{display:false},ticks:{color:TC}},y:{grid:{color:GC},ticks:{color:TC,callback:v=>v+'%'}}}}});
+
+const fLabels=['Lifetime','Freq. aulas (mês)','Freq. aulas (total)','Meses restantes','Idade','Gastos extras','Contrato','Visitas grupo','Promo amigos','Perto da academia','Gênero','Telefone','Parceiro'];
+const fVals=[0.3887,0.1775,0.1425,0.1133,0.0974,0.0448,0.0189,0.0087,0.0022,0.0022,0.0014,0.0013,0.0012];
+new Chart(document.getElementById('featureChart'),{type:'bar',data:{labels:fLabels,datasets:[{data:fVals,backgroundColor:fVals.map(v=>v>0.1?'#6c5ce7':v>0.03?'#a29bfe':'rgba(162,155,254,0.4)'),borderRadius:4}]},options:{...DF,indexAxis:'y',scales:{x:{grid:{color:GC},ticks:{color:TC}},y:{grid:{display:false},ticks:{color:TC,font:{size:11}}}}}});
+
+new Chart(document.getElementById('ageChart'),{type:'bar',data:{labels:['18-20','21-23','24-26','27-29','30-32','33-35','36-38','39-41'],datasets:[{data:[72,280,720,1160,960,520,216,72],backgroundColor:'rgba(84,160,255,0.6)',borderRadius:4}]},options:{...DF,scales:{x:{grid:{display:false},ticks:{color:TC}},y:{grid:{color:GC},ticks:{color:TC}}}}});
+
+new Chart(document.getElementById('factorChart'),{type:'bar',data:{labels:['Perto','Parceiro','Promo amigo','Grupo'],datasets:[{label:'Não',data:[39.7,33.3,31.3,33.0],backgroundColor:'#ff6b6b',borderRadius:4},{label:'Sim',data:[24.1,19.4,15.8,17.3],backgroundColor:'#1dd1a1',borderRadius:4}]},options:{...DF,plugins:{legend:{display:true,labels:{color:TC,boxWidth:12,font:{size:11}}}},scales:{x:{grid:{display:false},ticks:{color:TC}},y:{grid:{color:GC},ticks:{color:TC,callback:v=>v+'%'}}}}});
+
+// ===== LOGISTIC REGRESSION MODEL (embedded) =====
+const MEANS=[0.508,0.842,0.48033,0.30233,0.904,4.57033,0.41167,29.19333,146.52667,4.244,3.744,1.88076,1.76572];
+const SCALES=[0.49994,0.36474,0.49961,0.45927,0.29459,4.50626,0.49214,3.28399,95.93763,4.16891,3.71633,0.97615,1.05944];
+const COEFS=[0.01537,-0.01997,-0.06609,-0.25309,-0.03360,-0.63445,-0.40212,-1.20833,-0.58722,-0.63007,-3.71887,3.07886,-4.17912];
+const INTERCEPT=-3.74155;
+
+const FEAT_NAMES=['Gênero','Localização','Parceiro','Promo amigo','Telefone','Contrato','Visitas grupo','Idade','Gastos extras','Meses restantes','Tempo de membro','Freq. aulas total','Freq. aulas mês'];
+
+function sigmoid(z){return 1/(1+Math.exp(-z))}
+
+function predict(){
+  const raw=[
+    +document.getElementById('f_gender').value,
+    +document.getElementById('f_near').value,
+    +document.getElementById('f_partner').value,
+    +document.getElementById('f_promo').value,
+    +document.getElementById('f_phone').value,
+    +document.getElementById('f_contract').value,
+    +document.getElementById('f_group').value,
+    +document.getElementById('f_age').value,
+    +document.getElementById('f_charges').value,
+    +document.getElementById('f_months').value,
+    +document.getElementById('f_lifetime').value,
+    +document.getElementById('f_freq_total').value,
+    +document.getElementById('f_freq_month').value
+  ];
+
+  let z=INTERCEPT;
+  const contributions=[];
+  for(let i=0;i<13;i++){
+    const scaled=(raw[i]-MEANS[i])/SCALES[i];
+    const contrib=scaled*COEFS[i];
+    z+=contrib;
+    contributions.push({name:FEAT_NAMES[i],value:contrib,absVal:Math.abs(contrib)});
+  }
+
+  const prob=sigmoid(z);
+  const pct=Math.round(prob*1000)/10;
+
+  const box=document.getElementById('resultBox');
+  box.style.display='block';
+  document.getElementById('resultProb').textContent=pct.toFixed(1)+'%';
+
+  const verdict=document.getElementById('resultVerdict');
+  const bar=document.getElementById('riskBar');
+
+  if(prob<0.3){
+    box.style.background='rgba(29,209,161,0.08)';box.style.border='1px solid rgba(29,209,161,0.2)';
+    verdict.textContent='Baixo risco';verdict.style.background='rgba(29,209,161,0.15)';verdict.style.color='#1dd1a1';
+    bar.style.background='#1dd1a1';
+  }else if(prob<0.6){
+    box.style.background='rgba(254,202,87,0.08)';box.style.border='1px solid rgba(254,202,87,0.2)';
+    verdict.textContent='Risco moderado';verdict.style.background='rgba(254,202,87,0.15)';verdict.style.color='#feca57';
+    bar.style.background='#feca57';
+  }else{
+    box.style.background='rgba(255,107,107,0.08)';box.style.border='1px solid rgba(255,107,107,0.2)';
+    verdict.textContent='Alto risco';verdict.style.background='rgba(255,107,107,0.15)';verdict.style.color='#ff6b6b';
+    bar.style.background='#ff6b6b';
+  }
+  bar.style.width=pct+'%';
+
+  contributions.sort((a,b)=>b.absVal-a.absVal);
+  const top5=contributions.slice(0,5);
+  const maxAbs=Math.max(...top5.map(c=>c.absVal));
+  let fhtml='<div style="font-size:0.78rem;color:var(--tx3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;margin-top:16px;font-weight:600">Top 5 fatores desta previsão</div>';
+  top5.forEach(c=>{
+    const pctW=Math.round(c.absVal/maxAbs*100);
+    const col=c.value>0?'var(--red)':'var(--green)';
+    const dir=c.value>0?'↑ risco':'↓ risco';
+    fhtml+=`<div class="factor-item"><span style="width:140px;color:var(--tx)">${c.name}</span><div class="factor-bar"><div class="factor-bar-fill" style="width:${pctW}%;background:${col}"></div></div><span style="font-size:0.75rem;color:${col};min-width:60px;text-align:right">${dir}</span></div>`;
+  });
+  document.getElementById('resultFactors').innerHTML=fhtml;
+}
+</script>
+</body>
+</html>
